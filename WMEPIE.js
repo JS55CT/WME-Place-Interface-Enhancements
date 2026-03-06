@@ -1585,7 +1585,7 @@ var UpdateObject, MultiAction;
           'click',
           function (evt) {
             let ven = evt.target.venue;
-            W.model.actionManager.add(new (require('Waze/Action/UpdatePlaceUpdate'))(ven, ven.attributes.venueUpdateRequests[0], true));
+            sdk.DataModel.Venues.updateVenueUpdateRequest({ venueId: ven.id, venueUpdateRequestId: ven.attributes.venueUpdateRequests[0].id, isApproved: true });
             $($(this).parent().parent()).css('border', '1px solid #0f0');
             $($(this).parent().parent().find('img')).css('border', '1px solid #0f0');
             $(this).parent().remove();
@@ -1603,7 +1603,7 @@ var UpdateObject, MultiAction;
           'click',
           function (evt) {
             let ven = evt.target.venue;
-            W.model.actionManager.add(new (require('Waze/Action/UpdatePlaceUpdate'))(ven, ven.attributes.venueUpdateRequests[0], false));
+            sdk.DataModel.Venues.updateVenueUpdateRequest({ venueId: ven.id, venueUpdateRequestId: ven.attributes.venueUpdateRequests[0].id, isApproved: false });
             $(this).parent().parent().remove();
           },
           false,
@@ -1626,7 +1626,7 @@ var UpdateObject, MultiAction;
           return function () {
             hide_visio();
             let venueList = [];
-            venueList.push(W.model.venues.objects[id]);
+            const v = sdk.DataModel.Venues.getById({ venueId: id }); if (v) venueList.push(v);
 
             let lon = ((geo.left + geo.right) / 2 + geo.right) / 2;
             let lat = ((geo.bottom + geo.top) / 2 + geo.bottom) / 2;
@@ -1768,7 +1768,7 @@ var UpdateObject, MultiAction;
         }
       }
     }
-    if (pur) W.model.actionManager.add(new (require('Waze/Action/UpdatePlaceUpdate'))(ven, pur, approve));
+    if (pur) sdk.DataModel.Venues.updateVenueUpdateRequest({ venueId: ven.id, venueUpdateRequestId: pur.id, isApproved: approve });
   }
 
   function DeleteImage(venue, imageID) {
@@ -1869,7 +1869,7 @@ var UpdateObject, MultiAction;
       if (selected.attributes.categories.indexOf(catToAdd) === -1) {
         //if the category isn't already on the Place, add it
         newCategories.push(catToAdd);
-        W.model.actionManager.add(new UpdateObject(selected, { categories: newCategories }));
+        sdk.DataModel.Venues.updateVenue({ venueId: selected.id, categories: newCategories });
       }
     } else {
       //start new Place placement mode
@@ -2152,7 +2152,7 @@ var UpdateObject, MultiAction;
       b = W.map.venueLayer.getVisibility(),
       c = closestSegmentLayer.getVisibility(),
       d = !$('#map-lightbox > div').is(':visible'), //$('#map-lightbox > div').length === 0,/* Check for HN editing */
-      e = WazeWrap.hasSelectedFeatures() && getSelectedFeatures()[0]!== 'bigJunction';
+      e = (getSelectedFeatures().length > 0) && getSelectedFeatures()[0]!== 'bigJunction';
 
     if (a && b && c && d && e) return true;
     else return false;
@@ -2183,7 +2183,7 @@ var UpdateObject, MultiAction;
     if (!checkConditions()) removeDragCallbacks();
     else {
       getActiveEditor().then((val) => {
-        if (WazeWrap.hasSelectedFeatures()) {
+        if ((getSelectedFeatures().length > 0)) {
           let selectedItem = getSelectedFeatures()[0];
 
           if ('venue' !== selectedItem) {
@@ -2437,7 +2437,8 @@ var UpdateObject, MultiAction;
 
     if (showNames) {
       var isPoint;
-      for (var placeID in W.model.venues.objects) {
+      for (const place of sdk.DataModel.Venues.getAll()) {
+    const placeID = place.id;
         var venue = sdk.DataModel.Venues.getById({ venueId: placeID });
         isPoint = venue.isPoint();
         if ((isPoint && W.map.getZoom() >= 17) || (!isPoint && W.map.getZoom() >= 15)) {
@@ -2906,7 +2907,7 @@ var UpdateObject, MultiAction;
   }
 
   function _hidePaymentType() {
-    if (WazeWrap.hasSelectedFeatures() && _.includes(getSelectedFeatures()[0].categories, 'PARKING_LOT')) {
+    if ((getSelectedFeatures().length > 0) && _.includes(getSelectedFeatures()[0].categories, 'PARKING_LOT')) {
       let attr = getSelectedFeatures()[0];
       if (attr.categoryAttributes.PARKING_LOT.costType && attr.categoryAttributes.PARKING_LOT.costType === 'FREE') {
         if (!$('#venue-edit-more-info > div > form > fieldset > div:nth-child(3) > div:nth-child(2)').hasClass('collapse'))
@@ -2919,7 +2920,7 @@ var UpdateObject, MultiAction;
   }
 
   function HidePaymentTypePlaceSelected() {
-    if (WazeWrap.hasSelectedFeatures() && getSelectedFeatures()[0]=== 'venue') _hidePaymentType();
+    if ((getSelectedFeatures().length > 0) && getSelectedFeatures()[0]=== 'venue') _hidePaymentType();
   }
 
   function OrthogonalizePlace() {
@@ -3204,7 +3205,7 @@ var UpdateObject, MultiAction;
           val.olControl.resetVertices();
         });
       }
-    } else if (!WazeWrap.hasSelectedFeatures() && W.geometryEditing.activeEditor && lastSelectedFeature == 'venue') {
+    } else if (!(getSelectedFeatures().length > 0) && W.geometryEditing.activeEditor && lastSelectedFeature == 'venue') {
       if (W.geometryEditing.activeEditor.radiusHandle) W.geometryEditing.activeEditor.radiusHandle.destroy();
     }
   }
@@ -3781,7 +3782,7 @@ var UpdateObject, MultiAction;
       $('div.description-control').append('<i class="fa fa-times-circle clearButton" style="position:absolute; top:0; right:0;"></i>');
       $('div.description-control').css('position', 'relative');
       $('.clearButton').click(async function () {
-        W.model.actionManager.add(new UpdateObject(getSelectedFeatures()[0], { description: '' }));
+        sdk.DataModel.Venues.updateVenue({ venueId: getSelectedFeatures()[0].id, description: "" });
       });
     }, 0);
   }
@@ -3870,12 +3871,12 @@ var UpdateObject, MultiAction;
       //console.log(blankCategories.length);
       //blankCategories.splice(0, blankCategories.length);
       //console.log(blankCategories);
-      W.model.actionManager.add(new UpdateObject(getSelectedFeatures()[0], { categories: blankCategories }));
+      sdk.DataModel.Venues.updateVenue({ venueId: getSelectedFeatures()[0].id, categories: blankCategories });
     } else {
       var newCategories = [].concat(getSelectedFeatures()[0].categories);
       //console.log($('#'+buttonid)[0].getAttribute("data-category"));
       newCategories.push($('#' + buttonid)[0].getAttribute('data-category'));
-      W.model.actionManager.add(new UpdateObject(getSelectedFeatures()[0], { categories: newCategories }));
+      sdk.DataModel.Venues.updateVenue({ venueId: getSelectedFeatures()[0].id, categories: newCategories });
     }
   }
 
