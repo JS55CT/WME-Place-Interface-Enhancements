@@ -2167,7 +2167,7 @@ var UpdateObject, MultiAction;
         else showStopPointsLayer.removeAllFeatures();
       highlightedVenue = W.map.venueLayer.getFeatureBy('renderIntent', 'highlight');
 
-      if (highlightedVenue !== null && WazeWrap.Model.getObjectModel(highlightedVenue) && highlighting === false && W.map.getZoom() >= 16) {
+      if (highlightedVenue !== null && WazeWrap.Model.getObjectModel(highlightedVenue) && highlighting === false && sdk.Map.getZoomLevel() >= 16) {
         let isArea = !WazeWrap.Model.getObjectModel(highlightedVenue).isPoint();
         let navPoint;
 
@@ -2191,7 +2191,7 @@ var UpdateObject, MultiAction;
         pointFeature = new OpenLayers.Feature.Vector(navPoint, {}, pointStyleNavPoint);
         if (WazeWrap.Model.getObjectModel(highlightedVenue).attributes.entryExitPoints.length > 0 || isArea) showStopPointsLayer.addFeatures([lineFeature, pointFeature]);
       }
-      if (highlightedVenue === null || W.map.getZoom() < 16) showStopPointsLayer.removeAllFeatures();
+      if (highlightedVenue === null || sdk.Map.getZoomLevel() < 16) showStopPointsLayer.removeAllFeatures();
     } catch (err) {
       console.error(err.message);
     }
@@ -2222,7 +2222,7 @@ var UpdateObject, MultiAction;
   }
 
   function checkConditions() {
-    var a = W.map.getZoom() > 15,
+    var a = sdk.Map.getZoomLevel() > 15,
       b = W.map.venueLayer.getVisibility(),
       c = closestSegmentLayer.getVisibility(),
       d = !$('#map-lightbox > div').is(':visible'), //$('#map-lightbox > div').length === 0,/* Check for HN editing */
@@ -2511,11 +2511,9 @@ var UpdateObject, MultiAction;
 
     if (showNames) {
       var isPoint;
-      for (const place of sdk.DataModel.Venues.getAll()) {
-    const placeID = place.id;
-        var venue = sdk.DataModel.Venues.getById({ venueId: placeID });
+      for (const venue of sdk.DataModel.Venues.getAll()) {
         isPoint = venueIsPoint(venue);
-        if ((isPoint && W.map.getZoom() >= 17) || (!isPoint && W.map.getZoom() >= 15)) {
+        if ((isPoint && sdk.Map.getZoomLevel() >= 17) || (!isPoint && sdk.Map.getZoomLevel() >= 15)) {
           if (isInMapExtent(venue.geometry)) {
             if ((isPoint && showPoint) || (!isPoint && showArea && !venueIsParkingLot(venue)) || (!isPoint && showPLA && venueIsParkingLot(venue))) {
               let placeFilter = $('#piePlaceFilter').val();
