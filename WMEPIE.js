@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Place Interface Enhancements
 // @namespace    https://greasyfork.org/users/30701-justins83-waze
-// @version      2025.04.10.01
+// @version      2025.06.04.07
 // @description  Enhancements to various Place interfaces
 // @include      https://www.waze.com/editor*
 // @include      https://www.waze.com/*/editor*
@@ -19,6 +19,7 @@
 // @require      https://greasyfork.org/scripts/38421-wme-utils-navigationpoint/code/WME%20Utils%20-%20NavigationPoint.js
 // @require      https://greasyfork.org/scripts/39208-wme-utils-google-link-enhancer/code/WME%20Utils%20-%20Google%20Link%20Enhancer.js
 // @require      https://greasyfork.org/scripts/375202-photo-viewer-db-interface/code/Photo%20Viewer%20DB%20Interface.js
+// @require      https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
 // @connect     greasyfork.org
 // @contributionURL https://github.com/WazeDev/Thank-The-Authors
 // @license      GPLv3
@@ -28,6 +29,7 @@
 
 /* global W */
 /* global OpenLayers */
+/* global turf */
 /* ecmaVersion 2017 */
 /* global $ */
 /* global jscolor */
@@ -213,7 +215,146 @@ var UpdateObject, MultiAction;
           return true;
         }
       }
+      return f
+  // ===== Turf.js Geometry Helpers (replaces OpenLayers geometry operations) =====
+  
+  // Create a GeoJSON Point from coordinates
+  function createPoint(lon, lat) {
+    return turf.point([lon, lat]);
+  }
+
+  // Create a GeoJSON LineString from points
+  function createLineString(points) {
+    // points should be [[lon, lat], [lon, lat], ...]
+    return turf.lineString(points);
+  }
+
+  // Create a GeoJSON Polygon from rings
+  function createPolygon(rings) {
+    // rings should be [[[lon, lat], [lon, lat], ...], ...] (first ring is exterior, others are holes)
+    return turf.polygon(rings);
+  }
+
+  // Convert OpenLayers Point to Turf Point
+  function olPointToTurf(olPoint) {
+    if (!olPoint) return null;
+    return turf.point([olPoint.x, olPoint.y]);
+  }
+
+  // Convert Turf geometry to GeoJSON coordinates for display
+  function turfToGeoJSON(turfGeometry) {
+    if (!turfGeometry) return null;
+    return turfGeometry.geometry || turfGeometry;
+  }
+
+  // Get centroid of geometry using Turf
+  function geometryCentroid(geometry) {
+    try {
+      if (!geometry) return null;
+      const centroid = turf.centroid(turf.feature(geometry));
+      const [lon, lat] = centroid.geometry.coordinates;
+      return { lon, lat, x: lon, y: lat };
+    } catch (e) {
+      console.error('Error calculating centroid:', e);
+      return null;
+    }
+  }
+
+  // Get bounds/extent of geometry using Turf
+  function geometryBounds(geometry) {
+    try {
+      if (!geometry) return null;
+      const bbox = turf.bbox(turf.feature(geometry));
+      // bbox is [minX, minY, maxX, maxY]
+      return {
+        left: bbox[0],
+        bottom: bbox[1],
+        right: bbox[2],
+        top: bbox[3],
+        minX: bbox[0],
+        minY: bbox[1],
+        maxX: bbox[2],
+        maxY: bbox[3]
+      };
+    } catch (e) {
+      console.error('Error calculating bounds:', e);
+      return null;
+    }
+  }
+
+  // Calculate distance between two points in kilometers
+  function geometryDistance(point1, point2) {
+    try {
+      // point1 and point2 should be [lon, lat]
+      const dist = turf.distance(point1, point2, { units: 'kilometers' });
+      return dist;
+    } catch (e) {
+      console.error('Error calculating distance:', e);
+      return 0;
+    }
+  }
+
+  // Simplify polygon/linestring using Turf
+  function geometrySimplify(geometry, tolerance = 0.001) {
+    try {
+      if (!geometry) return null;
+      const simplified = turf.simplify(turf.feature(geometry), { tolerance });
+      return simplified.geometry;
+    } catch (e) {
+      console.error('Error simplifying geometry:', e);
+      return geometry;
+    }
+  }
+
+  // Create buffer around geometry using Turf
+  function geometryBuffer(geometry, radiusInKm = 0.1) {
+    try {
+      if (!geometry) return null;
+      const buffered = turf.buffer(turf.feature(geometry), radiusInKm, { units: 'kilometers' });
+      return buffered.geometry;
+    } catch (e) {
+      console.error('Error creating buffer:', e);
+      return geometry;
+    }
+  }
+
+  // Check if point is within polygon using Turf
+  function pointInPolygon(point, polygon) {
+    try {
+      // point should be [lon, lat]
+      const isInside = turf.booleanPointInPolygon(point, turf.feature(polygon));
+      return isInside;
+    } catch (e) {
+      console.error('Error checking point in polygon:', e);
       return false;
+    }
+  }
+
+  // Get length of linestring in kilometers using Turf
+  function geometryLength(geometry) {
+    try {
+      if (!geometry) return 0;
+      const length = turf.length(turf.feature(geometry), { units: 'kilometers' });
+      return length;
+    } catch (e) {
+      console.error('Error calculating length:', e);
+      return 0;
+    }
+  }
+
+  // Get area of polygon in square kilometers using Turf
+  function geometryArea(geometry) {
+    try {
+      if (!geometry) return 0;
+      const area = turf.area(turf.feature(geometry));
+      return area / 1000000; // Convert m² to km²
+    } catch (e) {
+      console.error('Error calculating area:', e);
+      return 0;
+    }
+  }
+
+alse;
     }
     return false;
   }
