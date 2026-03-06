@@ -215,7 +215,10 @@ var UpdateObject, MultiAction;
           return true;
         }
       }
-      return f
+      return false;
+    }
+  }
+
   // ===== Turf.js Geometry Helpers (replaces OpenLayers geometry operations) =====
   
   // Create a GeoJSON Point from coordinates
@@ -354,10 +357,72 @@ var UpdateObject, MultiAction;
     }
   }
 
-alse;
+  // ===== Segment Geometry Operations (replaces WazeWrap.Geometry.findClosestSegment) =====
+
+  // Find closest segment to a point using Turf.js and SDK segments
+  // Returns object compatible with WazeWrap result: { closestPoint: OL.Point, segment: SDK segment object }
+  async function findClosestSegmentTurf(olPoint, skipPLR = false, skipPrivate = false) {
+    try {
+      if (!olPoint) return null;
+
+      const pointCoords = [olPoint.x || olPoint.lon, olPoint.y || olPoint.lat];
+      const searchPoint = turf.point(pointCoords);
+
+      // Get all segments from SDK
+      let segments = sdk.DataModel.Segments.getAll();
+      if (!segments || segments.length === 0) {
+        console.warn('No segments found');
+        return null;
+      }
+
+      // Filter segments based on options
+      if (skipPLR || skipPrivate) {
+        segments = segments.filter(seg => {
+          const roadType = seg.roadType || seg.attributes?.roadType;
+          if (skipPLR && roadType === 'PRIVATE_ROAD') return false;
+          if (skipPrivate && roadType === 'PRIVATE_ROAD') return false;
+          return true;
+        });
+      }
+
+      // Convert segments to GeoJSON features for Turf
+      const segmentFeatures = segments
+        .filter(seg => seg.geometry && seg.geometry.type === 'LineString')
+        .map(seg => ({
+          type: 'Feature',
+          properties: { segmentId: seg.id },
+          geometry: seg.geometry
+        }));
+
+      if (segmentFeatures.length === 0) return null;
+
+      // Create feature collection and find nearest point
+      const fc = turf.featureCollection(segmentFeatures);
+      const nearest = turf.nearestPoint(searchPoint, fc);
+
+      if (!nearest) return null;
+
+      // Find the corresponding segment
+      const segmentId = nearest.properties.segmentId;
+      const closestSegment = segments.find(s => s.id === segmentId);
+
+      if (!closestSegment) return null;
+
+      // Convert nearest point back to OL geometry for drawing
+      const [lon, lat] = nearest.geometry.coordinates;
+      const closestPointOL = new OpenLayers.Geometry.Point(lon, lat);
+
+      return {
+        closestPoint: closestPointOL,
+        segment: closestSegment,
+        getAddress: function() { return this.segment; } // Compatibility method
+      };
+    } catch (err) {
+      console.error('Error in findClosestSegmentTurf:', err);
+      return null;
     }
-    return false;
   }
+
 
     // Feature flags for unimplemented/deferred features - module-level scope
   let PLACE_FILTER_SUPPORTED = false;        // Phase C - W.map.venueLayer styling not available
@@ -777,7 +842,7 @@ alse;
 
     $('#_cbShowNavPointClosestSegmentOnHover').change(async function () {
       if (this.checked) {
-        navPointHandlers.mousemove = () => drawNavPointClosestSegmentLines();
+        navPointHandlers.mousemove = async () => { try { await drawNavPointClosestSegmentLines(); } catch (e) { console.error(e); } };
         sdk.Events.on({
           eventName: 'wme-map-mouse-move',
           eventHandler: navPointHandlers.mousemove,
@@ -951,7 +1016,7 @@ alse;
             WazeWrap.Events.register("mousemove", null, drawNavPointClosestSegmentLines);
         */
     if (settings.ShowNavPointClosestSegmentOnHover) {
-      navPointHandlers.mousemove = () => drawNavPointClosestSegmentLines();
+      navPointHandlers.mousemove = async () => { try { await drawNavPointClosestSegmentLines(); } catch (e) { console.error(e); } };
       sdk.Events.on({
         eventName: 'wme-map-mouse-move',
         eventHandler: navPointHandlers.mousemove,
@@ -2299,7 +2364,7 @@ alse;
   }
 
   var highlightedVenue, highlighting;
-  function drawNavPointClosestSegmentLines() {
+  async function drawNavPointClosestSegmentLines() {
     if (!NAV_POINT_HOVER_SUPPORTED) return;
     try {
       highlighting = false;
@@ -2320,7 +2385,8 @@ alse;
         }
 
         //nav point to closest segment
-        let closestSeg = WazeWrap.Geometry.findClosestSegment(navPoint, false, false);
+        let closestSeg = await findClosestSegmentTurf(navPoint, false, false);
+        if (!closestSeg) return;
         let lineFeature = new OpenLayers.Feature.Vector(new OpenLayers.Geometry.LineString([navPoint, closestSeg.closestPoint]), {}, lineStyleToClosestSeg);
         let pointFeature = new OpenLayers.Feature.Vector(closestSeg.closestPoint, {}, pointStyle);
         showStopPointsLayer.addFeatures([lineFeature, pointFeature]);
@@ -2381,11 +2447,12 @@ alse;
     closestSegmentLayer.addFeatures([lineFeature, pointFeature]);
   }
 
-  function findNearestSegment(navPoint) {
+  async function findNearestSegment(navPoint) {
     var closestSegment = {};
     if (navPoint.element) navPoint = new OpenLayers.Geometry.Point(W.geometryEditing.activeEditor._navigationPointMarker.lonlat.lon, W.geometryEditing.activeEditor._navigationPointMarker.lonlat.lat);
 
-    closestSegment = WazeWrap.Geometry.findClosestSegment(navPoint, false, false);
+    closestSegment = await findClosestSegmentTurf(navPoint, false, false);
+    if (!closestSegment) return;
 
     clearClosesetSegmentLayerFeatures();
     drawLine(navPoint, closestSegment.closestPoint, lineStyleToClosestSeg, pointStyle);
@@ -2869,7 +2936,7 @@ alse;
     sdk.Editing.setSelection({ selection: { ids: [NewPlace].filter(v => v?.id).map(v => v.id), objectType: 'venue' } });
   }
 
-  function doneHandler(geom) {
+  async function doneHandler(geom) {
     drawPoly.destroy();
     createPlace(geom, newPlaceCategory, false);
   }
@@ -2891,7 +2958,7 @@ alse;
     document.removeEventListener('keyup', keyUpHandler);
   }
 
-  function endPlacementMode(category, isPoint) {
+  async function endPlacementMode(category, isPoint) {
     disablePlacementMode();
     createPlace(getMousePos900913(), category, isPoint);
   }
@@ -2917,7 +2984,7 @@ alse;
     W.map.getLayersByName(layerName)[0].addFeatures([pointFeature]);
   }
 
-  function createPlace(pos, category, isPoint) {
+  async function createPlace(pos, category, isPoint) {
     var PlaceObject = require('Waze/Feature/Vector/Landmark');
     var AddPlace = require('Waze/Action/AddLandmark');
     var multiaction = new MultiAction();
@@ -2944,7 +3011,7 @@ alse;
     }
     NewPlace.attributes.lockRank = Number(settings.DefaultLockLevel);
 
-    var closestSeg = WazeWrap.Geometry.findClosestSegment(new OpenLayers.Geometry.Point(pos.lon, pos.lat), settings.SkipPLR, settings.SkipPLR);
+    var closestSeg = await findClosestSegmentTurf(new OpenLayers.Geometry.Point(pos.lon, pos.lat), settings.SkipPLR, settings.SkipPLR);
 
     W.model.actionManager.add(new AddPlace(NewPlace));
 
