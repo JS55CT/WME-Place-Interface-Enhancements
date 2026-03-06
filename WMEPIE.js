@@ -538,7 +538,7 @@ var UpdateObject, MultiAction;
                 WazeWrap.Events.register('afterundoaction', this, checkSelection);
                 WazeWrap.Events.register('afteraction', this, checkSelection);
                 WazeWrap.Events.register('selectionchanged', this, checkSelection);
-                W.model.venues.on('objectschanged', ObjectsChanged);
+                sdk.Events.on('objectschanged', ObjectsChanged);
             }
             else{
                 WazeWrap.Events.unregister('afterundoaction', this, checkSelection);
@@ -1471,7 +1471,7 @@ var UpdateObject, MultiAction;
   function Photos_scan() {
     catalog = [];
     let venues = [];
-    for (let poi in W.model.venues.objects) venues.push(W.model.venues.getObjectById(poi));
+    for (let poi in W.model.venues.objects) venues.push(sdk.DataModel.Venues.getById({ venueId: poi }));
 
     venues.sort(dynamicSort((settings.sortOrder === 'sortDesc' ? '-' : '') + settings.sortBy.substr(6)));
     for (let i = 0; i < venues.length; i++) {
@@ -1489,7 +1489,7 @@ var UpdateObject, MultiAction;
     let c = 0;
     let picCount = 0;
     for (let i = 0; catalog[i]; i++) {
-      let venue = W.model.venues.getObjectById(catalog[i]);
+      let venue = sdk.DataModel.Venues.getById({ venueId: catalog[i] });
       let vattr = venue.attributes;
       let myplace = await idbPVKeyval.get('Places', vattr.id);
       let matchCount = 0;
@@ -2028,6 +2028,7 @@ var UpdateObject, MultiAction;
 
   //*******/
   function UpdatePlaceFilter() {
+    if (!PLACE_FILTER_SUPPORTED) return;
     let index = W.map.venueLayer.styleMap.styles.default.rules.findIndex(function (e) {
       return e.name == 'PIEPlaceFilter';
     });
@@ -2056,6 +2057,7 @@ var UpdateObject, MultiAction;
   }
 
   function ToggleHideAreaPlaces() {
+    if (!AREA_HIDE_SUPPORTED) return;
     let index = W.map.venueLayer.styleMap.styles.default.rules.findIndex(function (e) {
       return e.name == 'PIEHide';
     });
@@ -2083,6 +2085,7 @@ var UpdateObject, MultiAction;
 
   var highlightedVenue, highlighting;
   function drawNavPointClosestSegmentLines() {
+    if (!NAV_POINT_HOVER_SUPPORTED) return;
     try {
       highlighting = false;
       if (highlightedVenue !== null)
@@ -2133,7 +2136,7 @@ var UpdateObject, MultiAction;
   function handleNavPointOffScreen() {
     if (
       selectedItem !== getSelectedFeatures().first() ||
-      WazeWrap.Geometry.isGeometryInMapExtent(new OpenLayers.Geometry.Point(ClosestSegmentNavPoint.lonlat.lon, ClosestSegmentNavPoint.lonlat.lat))
+      isInMapExtent(new OpenLayers.Geometry.Point(ClosestSegmentNavPoint.lonlat.lon, ClosestSegmentNavPoint.lonlat.lat))
     ) {
       W.map.events.unregister('moveend', window, handleNavPointOffScreen);
       checkSelection();
@@ -2195,11 +2198,10 @@ var UpdateObject, MultiAction;
               val.olControl.handlers.drag.callbacks.move = function (e) {
                 nativeolControlMoveCallback.call(val.olControl, e);
                 let screenCoord = W.map.getLonLatFromViewPortPx(e);
-                let geom = WazeWrap.Geometry.ConvertTo900913(screenCoord.lon, screenCoord.lat);
+                let geom = lonLatToMercator(screenCoord.lon, screenCoord.lat);
                 if (selectedItem.navigationPoints.length > 0)
-                  geom = WazeWrap.Geometry.ConvertTo900913(
-                    selectedItem.navigationPoints[0]._point.coordinates[0],
-                    selectedItem.navigationPoints[0]._point.coordinates[1],
+                  geom = lonLatToMercator(
+                    selectedItem.navigationPoints[0]._point.coordinates[0], selectedItem.navigationPoints[0]._point.coordinates[1],
                   );
                 let entryExitPoint = new OpenLayers.Geometry.Point(geom.lon, geom.lat);
                 findNearestSegment(entryExitPoint);
@@ -2207,9 +2209,8 @@ var UpdateObject, MultiAction;
 
               let entryExitPoint = selectedItem.geometry.clone();
               if (selectedItem.navigationPoints.length > 0) {
-                let geom = WazeWrap.Geometry.ConvertTo900913(
-                  selectedItem.navigationPoints[0]._point.coordinates[0],
-                  selectedItem.navigationPoints[0]._point.coordinates[1],
+                let geom = lonLatToMercator(
+                  selectedItem.navigationPoints[0]._point.coordinates[0], selectedItem.navigationPoints[0]._point.coordinates[1],
                 );
                 entryExitPoint = new OpenLayers.Geometry.Point(geom.lon, geom.lat);
               }
@@ -2218,9 +2219,8 @@ var UpdateObject, MultiAction;
               if (selectedItem.navigationPoints.length === 0) findNearestSegment(selectedItem.geometry.getCentroid());
               else {
                 for (let i = 0; i < selectedItem.navigationPoints.length; i++) {
-                  let geom = WazeWrap.Geometry.ConvertTo900913(
-                    selectedItem.navigationPoints[i]._point.coordinates[0],
-                    selectedItem.navigationPoints[i]._point.coordinates[1],
+                  let geom = lonLatToMercator(
+                    selectedItem.navigationPoints[i]._point.coordinates[0], selectedItem.navigationPoints[i]._point.coordinates[1],
                   );
                   findNearestSegment(new OpenLayers.Geometry.Point(geom.lon, geom.lat)); //selectedItem.navigationPoints[i]._point);
                 }
@@ -2438,10 +2438,10 @@ var UpdateObject, MultiAction;
     if (showNames) {
       var isPoint;
       for (var placeID in W.model.venues.objects) {
-        var venue = W.model.venues.getObjectById(placeID);
+        var venue = sdk.DataModel.Venues.getById({ venueId: placeID });
         isPoint = venue.isPoint();
         if ((isPoint && W.map.getZoom() >= 17) || (!isPoint && W.map.getZoom() >= 15)) {
-          if (WazeWrap.Geometry.isGeometryInMapExtent(venue.getOLGeometry())) {
+          if (isInMapExtent(venue.getOLGeometry())) {
             if ((isPoint && showPoint) || (!isPoint && showArea && !venue.isParkingLot()) || (!isPoint && showPLA && venue.isParkingLot())) {
               let placeFilter = $('#piePlaceFilter').val();
               if (placeFilter.length > 0) {
@@ -2685,7 +2685,7 @@ var UpdateObject, MultiAction;
   function getMousePos900913() {
     var mousePosition = $('.wz-map-ol-control-span-mouse-position').text().split(' ');
     [mousePosition[0], mousePosition[1]] = [mousePosition[1], mousePosition[0]];
-    return WazeWrap.Geometry.ConvertTo900913(mousePosition[0], mousePosition[1]);
+    return lonLatToMercator(mousePosition[0], mousePosition[1]);
   }
 
   function MouseMoveHandler(e) {
@@ -2923,6 +2923,7 @@ var UpdateObject, MultiAction;
   }
 
   function OrthogonalizePlace() {
+    if (!GEOM_EDITING_SUPPORTED) return;
     if (
       hasPlaceSelected() &&
       getSelectedFeatures()[0]
@@ -2967,6 +2968,7 @@ var UpdateObject, MultiAction;
   }
 
   function SimplifyPlace() {
+    if (!GEOM_EDITING_SUPPORTED) return;
     if (
       hasPlaceSelected() &&
       getSelectedFeatures()[0]
@@ -3026,7 +3028,7 @@ var UpdateObject, MultiAction;
           return;
         }
         let coords = lines[i].match(/^(-?\d*(?:\.\d*)?),\s?(-?\d*(?:\.\d*))$/);
-        let pt = WazeWrap.Geometry.ConvertTo900913(coords[2], coords[1]);
+        let pt = lonLatToMercator(coords[2], coords[1]);
         lines[i] = new OpenLayers.Geometry.Point(pt.lon, pt.lat);
       }
 
@@ -3045,7 +3047,7 @@ var UpdateObject, MultiAction;
             return;
           }
           let coords = lines[i].match(/^(-?\d*(?:\.\d*)?)\s+(-?\d*(?:\.\d*))$/);
-          let pt = WazeWrap.Geometry.ConvertTo900913(coords[1], coords[2]);
+          let pt = lonLatToMercator(coords[1], coords[2]);
           lines[i] = new OpenLayers.Geometry.Point(pt.lon, pt.lat);
         }
       }
@@ -3066,7 +3068,7 @@ var UpdateObject, MultiAction;
           return;
         }
         let coords = lines[i].trim().match(/^(-?\d*(?:\.\d*)?)\s(-?\d*(?:\.\d*))$/);
-        let pt = WazeWrap.Geometry.ConvertTo900913(coords[1], coords[2]);
+        let pt = lonLatToMercator(coords[1], coords[2]);
         lines[i] = new OpenLayers.Geometry.Point(pt.lon, pt.lat);
       }
 
@@ -3080,6 +3082,7 @@ var UpdateObject, MultiAction;
   }
 
   function saveNewPlaceGeometry(newGeom) {
+    if (!GEOM_EDITING_SUPPORTED) return;
     let selected = getSelectedFeatures()[0];
     let originalGeometry = selected.getOLGeometry().clone();
     let ls = new OpenLayers.Geometry.LineString(newGeom);
@@ -3315,6 +3318,7 @@ var UpdateObject, MultiAction;
   }
 
   function startPLSpotEstimatorDrawMode() {
+    if (!SPOT_ESTIMATOR_SUPPORTED) return;
     let polyDrawFeatureOptions = { callbacks: { done: PLSpotEstimatordoneHandler, point: pointHandler } };
     PLSpotEstimatorLayer.setZIndex(1000);
     PLSpotEstimatordrawControl = new OpenLayers.Control.DrawFeature(PLSpotEstimatorLayer, OpenLayers.Handler.Path, polyDrawFeatureOptions);
@@ -3444,6 +3448,7 @@ var UpdateObject, MultiAction;
   }
 
   function ShowPLSpotEstimator() {
+    if (!SPOT_ESTIMATOR_SUPPORTED) return;
     if ($('#PIEParkingSpotEstimator').length > 0) $('#PIEParkingSpotEstimator').remove();
     else {
       if (getSelectedFeatures().length > 0) {
@@ -3693,14 +3698,14 @@ var UpdateObject, MultiAction;
                 .match(/^POLYGON/)
             ) {
               for (var i = 0; i < NewPlace.getOLGeometry().components[0].components.length - 1; i++) {
-                convertedCoords = WazeWrap.Geometry.ConvertTo4326(NewPlace.getOLGeometry().components[0].components[i].x, NewPlace.getOLGeometry().components[0].components[i].y);
+                convertedCoords = mercatorToLonLat(NewPlace.getOLGeometry().components[0].components[i].x, NewPlace.getOLGeometry().components[0].components[i].y);
                 convertedCoords.lon += WazeWrap.Geometry.CalculateLongOffsetGPS(5, convertedCoords.long, convertedCoords.lat);
-                NewPlace.getOLGeometry().components[0].components[i].x = WazeWrap.Geometry.ConvertTo900913(convertedCoords.lon, convertedCoords.lat).lon;
+                NewPlace.getOLGeometry().components[0].components[i].x = lonLatToMercator(convertedCoords.lon, convertedCoords.lat).lon;
               }
             } else {
-              convertedCoords = WazeWrap.Geometry.ConvertTo4326(oldPlace.getOLGeometry().x, oldPlace.getOLGeometry().y);
+              convertedCoords = mercatorToLonLat(oldPlace.getOLGeometry().x, oldPlace.getOLGeometry().y);
               convertedCoords.lon += WazeWrap.Geometry.CalculateLongOffsetGPS(5, convertedCoords.long, convertedCoords.lat);
-              NewPlace.attributes.geometry.x = WazeWrap.Geometry.ConvertTo900913(convertedCoords.lon, convertedCoords.lat).lon;
+              NewPlace.attributes.geometry.x = lonLatToMercator(convertedCoords.lon, convertedCoords.lat).lon;
             }
 
             NewPlace.attributes.services = [].concat(oldPlace.attributes.services);
@@ -3950,8 +3955,8 @@ var UpdateObject, MultiAction;
     var lat = adjustedPL.match(/lat=(-?\d+\.\d+)/)[1];
     var zoom = adjustedPL.match(/zoom[Levl]*=\d+/)[0];
     var centroid = getSelectedFeatures()[0].geometry.getCentroid();
-    adjustedPL = adjustedPL.replace(lon, WazeWrap.Geometry.ConvertTo4326(centroid.x, centroid.y).lon);
-    adjustedPL = adjustedPL.replace(lat, WazeWrap.Geometry.ConvertTo4326(centroid.x, centroid.y).lat);
+    adjustedPL = adjustedPL.replace(lon, mercatorToLonLat(centroid.x, centroid.y).lon);
+    adjustedPL = adjustedPL.replace(lat, mercatorToLonLat(centroid.x, centroid.y).lat);
     adjustedPL = adjustedPL.replace(zoom, 'zoomLevel=' + settings.PlaceZoom);
     if (settings.PlaceLocatorCrosshairProdPL) return 'https://www.waze.com/' + adjustedPL;
     else return location.origin + '/' + adjustedPL;
