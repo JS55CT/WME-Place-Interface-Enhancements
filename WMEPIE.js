@@ -423,8 +423,21 @@ var UpdateObject, MultiAction;
     }
   }
 
+  // Calculate length in kilometers from OpenLayers geometry components
+  // components should be an array of OL.Geometry.Point objects
+  function olGeometryLength(components) {
+    if (!components || components.length < 2) return 0;
+    try {
+      const coordinates = components.map(pt => [pt.x, pt.y]);
+      const lineString = turf.lineString(coordinates);
+      return turf.length(lineString, { units: 'kilometers' });
+    } catch (e) {
+      console.error('Error calculating OL geometry length:', e);
+      return 0;
+    }
+  }
 
-    // Feature flags for unimplemented/deferred features - module-level scope
+// Feature flags for unimplemented/deferred features - module-level scope
   let PLACE_FILTER_SUPPORTED = false;        // Phase C - W.map.venueLayer styling not available
   let AREA_HIDE_SUPPORTED = false;            // Phase C - Venue layer manipulation deferred
   let GEOM_EDITING_SUPPORTED = false;         // Phase G - W.geometryEditing.activeEditor not available
@@ -3693,7 +3706,7 @@ var UpdateObject, MultiAction;
     PLSpotEstimatorLayer.addFeatures(new OpenLayers.Feature.Vector(geom, {}, style));
 
     let spots = Math.round(
-      WazeWrap.Geometry.calculateDistance(geom.components) / ($('#PIE90DegreeSpotWidthDraw').hasClass('PSESelected') ? $('#PIE90DegreeSpotWidth')[0].value : $('#PIEAngledSpotWidth')[0].value),
+      olGeometryLength(geom.components) / ($('#PIE90DegreeSpotWidthDraw').hasClass('PSESelected') ? $('#PIE90DegreeSpotWidth')[0].value : $('#PIEAngledSpotWidth')[0].value),
     );
     totalSpots += spots;
 
@@ -3709,7 +3722,7 @@ var UpdateObject, MultiAction;
     let totalLength = 0;
 
     PLSpotEstimatorCalibrationLayer.features.forEach(function (f) {
-      let length = Math.round(WazeWrap.Geometry.calculateDistance(f.getOLGeometry().components) * 100) / 100;
+      let length = Math.round(olGeometryLength(f.getOLGeometry().components) * 100) / 100;
       totalLength += length;
     });
 
