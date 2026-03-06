@@ -2532,8 +2532,8 @@ var UpdateObject, MultiAction;
               if (isPoint) { const coords = venue.geometry.coordinates; textLoc = new OpenLayers.Geometry.Point(coords[0], coords[1]); }
               else textLoc = venueGetCentroid(venue);
               let lockStr = showLock ? (' (L' + ((venue.modificationData?.lockRank ?? 0) + 1) + ')') : ''; let placeName = WordWrap((venue.name || '').trim() + lockStr);
-              if (venue.attributes.categories[0] === 'RESIDENCE_HOME')
-                placeName = venue.attributes.houseNumber + (venue.attributes.name.trim() !== '' ? ' - ' + venue.attributes.name : '') + (showLock ? ' (L' + (venue.attributes.lockRank + 1) + ')' : '');
+              if (venue.categories && venue.categories[0] === 'RESIDENCE_HOME')
+                placeName = (venue.houseNumber || '') + ((venue.name || '').trim() !== '' ? ' - ' + (venue.name || '') : '') + lockStr;
               let placeNameLabel = new OpenLayers.Feature.Vector(textLoc, { display: 'block', labelText: placeName.trim(), yOffset: isPoint ? -13 - placeName.split('\n').length * 5 : 0 });
               PIEPlaceNameLayer.addFeatures([placeNameLabel]);
             }
