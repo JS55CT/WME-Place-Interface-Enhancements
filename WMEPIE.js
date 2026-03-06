@@ -437,6 +437,22 @@ var UpdateObject, MultiAction;
     }
   }
 
+  // Calculate longitude offset for a given distance in meters at a specific latitude
+  // Uses Turf.js destination to account for Earth's curvature
+  function calculateLongitudeOffsetMeters(distanceMeters, lon, lat) {
+    try {
+      if (!distanceMeters || !lon || lat === undefined) return 0;
+      // Create a point and calculate destination 90 degrees east (bearing 90)
+      const start = turf.point([lon, lat]);
+      const end = turf.destination(start, distanceMeters, 90, { units: 'meters' });
+      // Return the longitude difference
+      return end.geometry.coordinates[0] - lon;
+    } catch (e) {
+      console.error('Error calculating longitude offset:', e);
+      return 0;
+    }
+  }
+
 // Feature flags for unimplemented/deferred features - module-level scope
   let PLACE_FILTER_SUPPORTED = false;        // Phase C - W.map.venueLayer styling not available
   let AREA_HIDE_SUPPORTED = false;            // Phase C - Venue layer manipulation deferred
@@ -3994,12 +4010,12 @@ var UpdateObject, MultiAction;
             ) {
               for (var i = 0; i < NewPlace.getOLGeometry().components[0].components.length - 1; i++) {
                 convertedCoords = mercatorToLonLat(NewPlace.getOLGeometry().components[0].components[i].x, NewPlace.getOLGeometry().components[0].components[i].y);
-                convertedCoords.lon += WazeWrap.Geometry.CalculateLongOffsetGPS(5, convertedCoords.long, convertedCoords.lat);
+                convertedCoords.lon += calculateLongitudeOffsetMeters(5, convertedCoords.lon, convertedCoords.lat);
                 NewPlace.getOLGeometry().components[0].components[i].x = lonLatToMercator(convertedCoords.lon, convertedCoords.lat).lon;
               }
             } else {
               convertedCoords = mercatorToLonLat(oldPlace.getOLGeometry().x, oldPlace.getOLGeometry().y);
-              convertedCoords.lon += WazeWrap.Geometry.CalculateLongOffsetGPS(5, convertedCoords.long, convertedCoords.lat);
+              convertedCoords.lon += calculateLongitudeOffsetMeters(5, convertedCoords.lon, convertedCoords.lat);
               NewPlace.attributes.geometry.x = lonLatToMercator(convertedCoords.lon, convertedCoords.lat).lon;
             }
 
