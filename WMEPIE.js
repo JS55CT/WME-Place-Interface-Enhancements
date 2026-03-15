@@ -519,10 +519,37 @@
   }
 
   function init2() {
-    // Collapsible section headers
+    // Collapsible section headers — state persisted in localStorage
+    const PIE_LS_SECTIONS = 'WME_PIE_sectionStates';
+    // Sections collapsed by default (id → true means collapsed)
+    const PIE_SECTION_DEFAULTS = { divPlaceMenuCustomization: true };
+
+    function saveSectionStates() {
+      const states = {};
+      $('.wme-pie-panel .pie-section[id]').each(function () {
+        states[this.id] = $(this).hasClass('pie-collapsed');
+      });
+      try { localStorage.setItem(PIE_LS_SECTIONS, JSON.stringify(states)); } catch (e) {}
+    }
+
+    function restoreSectionStates() {
+      let stored = {};
+      try { stored = JSON.parse(localStorage.getItem(PIE_LS_SECTIONS)) || {}; } catch (e) {}
+      $('.wme-pie-panel .pie-section[id]').each(function () {
+        const id = this.id;
+        const collapsed = Object.prototype.hasOwnProperty.call(stored, id)
+          ? stored[id]
+          : PIE_SECTION_DEFAULTS[id] === true;
+        $(this).toggleClass('pie-collapsed', collapsed);
+      });
+    }
+
     $(document).on('click', '.wme-pie-panel .pie-section-header', function () {
       $(this).closest('.pie-section').toggleClass('pie-collapsed');
+      saveSectionStates();
     });
+
+    restoreSectionStates();
 
     sdk.Events.trackDataModelEvents({ dataModelName: 'venues' });
     sdk.Events.trackLayerEvents({ layerName: 'venues' });
@@ -1274,25 +1301,58 @@
     //Icon near chat
     let launchDiv = document.createElement('div');
     launchDiv.id = 'launchDiv';
-    $(launchDiv).css({
-      'z-index': '10000 !important',
-      title: 'test',
-      bottom: '20px',
-      left: '190px',
-      position: 'absolute',
-      'font-weight': '400',
-      display: settings.EnablePhotoViewer ? 'block' : 'none',
-    });
-    let tmpdiv = document.createElement('div');
-    $(tmpdiv).css({ height: '40px', position: 'absolute', bottom: '0px', transition: 'all 0.3s' });
-    tmpdiv.onmouseenter = togglePhotoViewerMouseEvent;
-    launchDiv.appendChild(tmpdiv);
-    let launchButton = document.createElement('button');
-    $(launchButton).css({ filter: 'filter:grayscale(100%)', border: 'none', 'background-color': 'white', 'border-radius': '8px 8px 8px 8px', width: '43px', height: '40px' });
-    launchButton.innerHTML = '<i style="color:#666;font-size:20px;" class="fa fa-image"></i>';
+    launchDiv.style.cssText = 'position:absolute; z-index:10000; bottom:20px; left:190px; display:' + (settings.EnablePhotoViewer ? 'block' : 'none') + ';';
+    const launchButton = document.createElement('button');
     launchButton.id = 'photoViewerButton';
-    tmpdiv.appendChild(launchButton);
+    launchButton.type = 'button';
+    launchDiv.setAttribute('data-pie-tip', 'Photo Viewer\nPlace Interface Enhancements');
+    launchButton.innerHTML = '<i class="fa fa-picture-o"></i>';
+    launchButton.onmouseenter = togglePhotoViewerMouseEvent;
+    launchDiv.appendChild(launchButton);
     $(WME_DOM.map).append(launchDiv);
+
+    // Drag-to-move
+    let _pvDragging = false, _pvMoved = false, _pvOX = 0, _pvOY = 0;
+    launchDiv.addEventListener('mousedown', function (e) {
+      _pvDragging = true;
+      _pvMoved = false;
+      const r = launchDiv.getBoundingClientRect();
+      _pvOX = e.clientX - r.left;
+      _pvOY = e.clientY - r.top;
+    });
+    document.addEventListener('mousemove', function (e) {
+      if (!_pvDragging) return;
+      _pvMoved = true;
+      launchDiv.style.cursor = 'grabbing';
+      const mapEl = document.querySelector(WME_DOM.map);
+      const mr = mapEl.getBoundingClientRect();
+      const newLeft = Math.max(0, Math.min(e.clientX - mr.left - _pvOX, mr.width  - launchDiv.offsetWidth));
+      const newTop  = Math.max(0, Math.min(e.clientY - mr.top  - _pvOY, mr.height - launchDiv.offsetHeight));
+      launchDiv.style.left   = newLeft + 'px';
+      launchDiv.style.top    = newTop  + 'px';
+      launchDiv.style.bottom = 'auto';
+    });
+    document.addEventListener('mouseup', function () {
+      if (!_pvDragging) return;
+      _pvDragging = false;
+      launchDiv.style.cursor = 'grab';
+      if (_pvMoved) {
+        try {
+          localStorage.setItem('WME_PIE_photoViewerPos',
+            JSON.stringify({ top: launchDiv.style.top, left: launchDiv.style.left }));
+        } catch (e) {}
+      }
+    });
+
+    // Restore saved position
+    try {
+      const _pvSaved = JSON.parse(localStorage.getItem('WME_PIE_photoViewerPos'));
+      if (_pvSaved?.top != null && _pvSaved?.left != null) {
+        launchDiv.style.top    = _pvSaved.top;
+        launchDiv.style.left   = _pvSaved.left;
+        launchDiv.style.bottom = 'auto';
+      }
+    } catch (e) {}
 
     $('#sortBy')[0].value = settings.sortBy;
     $('#sortOrder')[0].value = settings.sortOrder;
@@ -1318,10 +1378,12 @@
     ) {
       $('#photoViewerButton').css('cursor', 'not-allowed');
       $('#photoViewerButton').attr('title', 'Enable the Places layers to use this tool');
+      $('#launchDiv').addClass('pie-tip-off');
       $('#photoViewerButton').off();
     } else {
       $('#photoViewerButton').css('cursor', 'pointer');
       $('#photoViewerButton').attr('title', '');
+      $('#launchDiv').removeClass('pie-tip-off');
       $('#photoViewerButton').unbind('click');
       $('#photoViewerButton').click(show_visio);
     }
@@ -3355,6 +3417,16 @@
       [wz-theme="dark"] .pie-geom-textarea:focus { border-color: #33ccff; box-shadow: 0 0 0 2px rgba(51,204,255,.15); background: #2d2f33; }
       [wz-theme="dark"] .pie-geom-apply-btn { background: #0066cc; }
       [wz-theme="dark"] .pie-geom-apply-btn:hover { background: #0052a3; }
+
+      /* Photo Viewer launch button — matches WME overlay-button visual style */
+      #launchDiv { cursor: grab; position: relative; }
+      #launchDiv[data-pie-tip]::after { content: attr(data-pie-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; font-family: Arial, sans-serif; font-size: 11px; line-height: 1.6; white-space: pre; text-align: center; padding: 5px 10px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.35); pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 10001; }
+      #launchDiv[data-pie-tip]:hover::after { opacity: 1; }
+      #launchDiv.pie-tip-off::after { display: none; }
+      #photoViewerButton { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: none; border-radius: 8px; background: var(--surface_default, #fff); color: var(--content_default, #1a1a1a); box-shadow: 0 1px 4px rgba(0,0,0,0.18); cursor: inherit; padding: 0; transition: background 0.12s, box-shadow 0.12s; }
+      #photoViewerButton .fa { font-size: 18px; }
+      #photoViewerButton:hover { background: var(--surface_hover, #f0f0f0); box-shadow: 0 2px 8px rgba(0,0,0,0.22); }
+      #photoViewerButton:active { background: var(--surface_active, #e4e4e4); box-shadow: 0 1px 2px rgba(0,0,0,0.14); }
     `;
     $('<style type="text/css">' + css + '</style>').appendTo('head');
   }
