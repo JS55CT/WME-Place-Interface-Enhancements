@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:cdn.jsdelivr.net)",
-      "Bash(node -c \"c:/Users/Jstrand/OneDrive - FactSet/Personal/Devlopment Source Code/WME-Place-Interface-Enhancements/WMEPIE.js\")",
-      "Bash(node -c WMEPIE.js)",
-    ]
-  }
-}
