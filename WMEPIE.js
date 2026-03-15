@@ -49,7 +49,7 @@
   let hoursparser;
   let GLE;
   var catalog = [];
-  const updateMessage = 'Fixed the Google Link Enhancer feature to show the Google place location when hovering over an External Provider.';
+  const updateMessage = 'Updating to support the SDK and refreshing the interface design.  Thank you to JS55CT and karlsosha for their work on this.';
   var lastSelectedFeature;
   const SCRIPT_VERSION = GM_info.script.version.toString();
   const SCRIPT_NAME = GM_info.script.name;
@@ -2445,7 +2445,7 @@
         score,
         motions;
 
-      if (points.length === 4) {
+      if (points.length === 3) {
         for (i = 0; i < 1000; i++) {
           motions = points.map(calcMotion);
           const tmp = addPoints(points[corner.i], motions[corner.i]);
