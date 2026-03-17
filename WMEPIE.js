@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Place Interface Enhancements
 // @namespace    https://greasyfork.org/users/30701-justins83-waze
-// @version      2026.03.15.01
+// @version      2026.03.15.02
 // @description  Enhancements to various Place interfaces
 // @include      https://www.waze.com/editor*
 // @include      https://www.waze.com/*/editor*
@@ -49,7 +49,7 @@
   let hoursparser;
   let GLE;
   var catalog = [];
-  const updateMessage = 'Fixing a small bug with displaying place names for residental venues.';
+  const updateMessage = 'Fixing a small bug with displaying place names for residental venues x 2.  Actually tested this time and RPP creation works again (still a bug with the ignore unnamed PR option)';
   var lastSelectedFeature;
   const SCRIPT_VERSION = GM_info.script.version.toString();
   const SCRIPT_NAME = GM_info.script.name;
@@ -2263,7 +2263,7 @@
   }
 
   async function createPlace(geometry, category, _isPoint) {
-    const sdkCategory = category === resCategory;
+    const sdkCategory = resCategory;
     const newPlaceId = sdk.DataModel.Venues.addVenue({ category: sdkCategory, geometry }).toString();
 
     if (category === resCategory) {
