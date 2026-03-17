@@ -44,12 +44,12 @@
   'use strict';
 
   var settings = {};
-  var resCategory = 'RESIDENCE_HOME';
+  var resCategory = 'RESIDENTIAL';
   var wazePL;
   let hoursparser;
   let GLE;
   var catalog = [];
-  const updateMessage = 'Updating to support the SDK and refreshing the interface design.  Thank you to JS55CT and karlsosha for their work on this.';
+  const updateMessage = 'Fixing a small bug with displaying place names for residental venues.';
   var lastSelectedFeature;
   const SCRIPT_VERSION = GM_info.script.version.toString();
   const SCRIPT_NAME = GM_info.script.name;
@@ -1037,17 +1037,15 @@
         id: 'CreateResidentialPlaceShortcut',
         desc: I18n.t('pie.prefs.CreateResidentialPlaceDesc'),
         settingsKey: 'CreateResidentialPlaceShortcut',
-        defaultKey: 'A+R',
         cb: () => startPlacementMode(resCategory, true),
       },
       {
         id: 'CreateParkingLotShortcut',
         desc: I18n.t('pie.prefs.CreateParkingLotDesc'),
         settingsKey: 'CreateParkingLotShortcut',
-        defaultKey: 'A+P',
         cb: () => startPlacementMode('PARKING_LOT', false),
       },
-      { id: 'HideAreaPlacesShortcut', desc: I18n.t('pie.prefs.HideAreaPlacesDesc'), settingsKey: 'ToggleAreaPlacesShortcut', defaultKey: 'CS+A', cb: ToggleHideAreaPlaces },
+      { id: 'HideAreaPlacesShortcut', desc: I18n.t('pie.prefs.HideAreaPlacesDesc'), settingsKey: 'ToggleAreaPlacesShortcut', cb: ToggleHideAreaPlaces },
       { id: 'OrthogonalizeShortcut', desc: I18n.t('pie.prefs.OrthogonalizeDesc'), settingsKey: 'OrthogonalizeShortcut', cb: OrthogonalizePlace },
       { id: 'SimplifyPlaceShortcut', desc: I18n.t('pie.prefs.SimplifyPlaceDesc'), settingsKey: 'SimplifyPlaceShortcut', cb: SimplifyPlace },
       ...Array.from({ length: 12 }, (_, i) => {
@@ -1487,8 +1485,8 @@
       // POI's Name
       let venueName = document.createElement('span');
       venueName.style.float = 'left';
-      venueName.innerHTML = venue.name; 
-      if (venue.categories[0] === 'RESIDENCE_HOME') {
+      venueName.innerHTML = venue.name;
+      if (venue.categories[0] === 'RESIDENTIAL') {
         const address = sdk.DataModel.Venues.getAddress({ venueId: venue.id });
         venueName.innerHTML = `${address?.houseNumber ?? ''} ${address?.street?.name ?? ''}`.trim();
       }
@@ -2180,7 +2178,8 @@
               const textLoc = isPoint ? venue.geometry : turf.centroid(venue.geometry).geometry;
               const lockStr = showLock ? ' (L' + ((venue.lockRank ?? 0) + 1) + ')' : '';
               let placeName = WordWrap((venue.name || '').trim() + lockStr);
-              if (venue.categories && venue.categories[0] === 'RESIDENCE_HOME') {
+                debugger;
+              if (venue.categories && venue.categories[0] === 'RESIDENTIAL') {
                 const houseNum = sdk.DataModel.Venues.getAddress({ venueId: venue.id })?.houseNumber || '';
                 placeName = houseNum + ((venue.name || '').trim() !== '' ? ' - ' + (venue.name || '') : '') + lockStr;
               }
@@ -2264,8 +2263,7 @@
   }
 
   async function createPlace(geometry, category, _isPoint) {
-    // SDK addVenue uses "RESIDENTIAL" but WMEPIE's resCategory is "RESIDENCE_HOME" (read-side value)
-    const sdkCategory = category === resCategory ? 'RESIDENTIAL' : category;
+    const sdkCategory = category === resCategory;
     const newPlaceId = sdk.DataModel.Venues.addVenue({ category: sdkCategory, geometry }).toString();
 
     if (category === resCategory) {
@@ -2432,6 +2430,7 @@
       upperThreshold = Math.cos((nomthreshold * Math.PI) / 180);
 
     function Orthogonalize() {
+
       let nodes = structuredClone(geometry[0]),
         points = nodes.slice(0, -1).map((n) => {
           const p = [...n];
@@ -2444,7 +2443,7 @@
         j,
         score,
         motions;
-
+debugger;
       if (points.length === 3) {
         for (i = 0; i < 1000; i++) {
           motions = points.map(calcMotion);
@@ -3024,7 +3023,7 @@
     await new Promise((r) => setTimeout(r, 100));
     $('#pieCopyPlaceButton').remove(); // re-remove after delay to handle concurrent calls
     const venue = getSelectedPlace();
-    if (venue && !venue.categories.includes('RESIDENCE_HOME')) {
+    if (venue && !venue.categories.includes('RESIDENTIAL')) {
       const $PlaceCopyButton = $('<div style="cursor:pointer;" id="pieCopyPlaceButton" title="Creates a copy of this Place"><i class="fa fa-files-o fa-lg" aria-hidden="true"></i></div>');
       getOrCreateNameButtonContainer().append($PlaceCopyButton);
 
@@ -3502,7 +3501,7 @@
       GLEShowTempClosed: true,
     };
     settings = $.extend({}, defaultSettings, loadedSettings);
-    if (settings.NewPlacesList.length < 12) settings.NewPlacesList.push('RESIDENCE_HOME');
+    if (settings.NewPlacesList.length < 12) settings.NewPlacesList.push('RESIDENTIAL');
 
     // Normalize all shortcut settings to {raw, combo} format.
     // Handles legacy flat strings ("A+R"), hybrid SDK format ("A+82"), WazeWrap raw ("4,82"),
@@ -3597,7 +3596,7 @@
       };
 
       localStorage.setItem('WMEPIE_Settings', JSON.stringify(localsettings));
-      WazeWrap.Remote.SaveSettings('WME_PIE', localsettings);
+      //WazeWrap.Remote.SaveSettings('WME_PIE', localsettings);
     }
   }
 
