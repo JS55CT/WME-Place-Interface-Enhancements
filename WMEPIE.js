@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Place Interface Enhancements
 // @namespace    https://greasyfork.org/users/30701-justins83-waze
-// @version      2026.03.18.01
+// @version      2026.03.24.01
 // @description  Enhancements to various Place interfaces
 // @include      https://www.waze.com/editor*
 // @include      https://www.waze.com/*/editor*
@@ -16,7 +16,7 @@
 // @require      https://update.greasyfork.org/scripts/509664/WME%20Utils%20-%20Bootstrap.js
 // @require      https://update.greasyfork.org/scripts/37486/1158035/WME%20Utils%20-%20HoursParser.js
 // @require      https://greasyfork.org/scripts/38421-wme-utils-navigationpoint/code/WME%20Utils%20-%20NavigationPoint.js
-// @require      https://update.greasyfork.org/scripts/569692/1774521/WME%20Utils%20-%20SDK%20Google%20Link%20Enhancer.js
+// @require      https://greasyfork.org/scripts/569692/code/WME%20Utils%20-%20SDK%20Google%20Link%20Enhancer.js
 // @require      https://greasyfork.org/scripts/375202-photo-viewer-db-interface/code/Photo%20Viewer%20DB%20Interface.js
 // @require      https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js
 // @connect     greasyfork.org
@@ -359,7 +359,7 @@
                 if (_SKIP_ROAD_TYPES.has(rt)) continue; // always skip non-drivable
                 if (skipPLR && rt === 20 /* PARKING_LOT_ROAD */) continue;
                 if (skipPrivate && rt === 17 /* PRIVATE_ROAD */){
-                    debugger;
+                    //debugger;
                     const segment = sdk.DataModel.Segments.getById({ segmentId: seg.id });
                     const street  = sdk.DataModel.Streets.getById({ streetId: segment.primaryStreetId });
                     if(street?.name === null || street?.name == "")
@@ -2196,7 +2196,7 @@
                             const textLoc = isPoint ? venue.geometry : turf.centroid(venue.geometry).geometry;
                             const lockStr = showLock ? ' (L' + ((venue.lockRank ?? 0) + 1) + ')' : '';
                             let placeName = WordWrap((venue.name || '').trim() + lockStr);
-                            debugger;
+                            //debugger;
                             if (venue.categories && venue.categories[0] === 'RESIDENTIAL') {
                                 const houseNum = sdk.DataModel.Venues.getAddress({ venueId: venue.id })?.houseNumber || '';
                                 placeName = houseNum + ((venue.name || '').trim() !== '' ? ' - ' + (venue.name || '') : '') + lockStr;
@@ -2461,7 +2461,7 @@
                 j,
                 score,
                 motions;
-            debugger;
+            //debugger;
             if (points.length === 3) {
                 for (i = 0; i < 1000; i++) {
                     motions = points.map(calcMotion);
