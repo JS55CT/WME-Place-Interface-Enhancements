@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Place Interface Enhancements
 // @namespace    https://greasyfork.org/users/30701-justins83-waze
-// @version      2026.03.24.01
+// @version      2026.03.26.00
 // @description  Enhancements to various Place interfaces
 // @include      https://www.waze.com/editor*
 // @include      https://www.waze.com/*/editor*
@@ -49,7 +49,7 @@
     let hoursparser;
     let GLE;
     var catalog = [];
-    const updateMessage = 'Fixing a small bug with category shortcuts always creating Residential Point Place (RPP) ';
+    const updateMessage = 'Guard against WME Google Places layer — clicking a Google Place no longer causes errors';
     var lastSelectedFeature;
     const SCRIPT_VERSION = GM_info.script.version.toString();
     const SCRIPT_NAME = GM_info.script.name;
@@ -280,19 +280,29 @@
 
     await init(sdk);
 
+    function safeGetSelection() {
+        try {
+            return sdk.Editing.getSelection();
+        } catch (e) {
+            // sdk.Editing.getSelection() throws WMEError for types it doesn't support
+            // (e.g. 'googlePlace'). Treat as no-selection.
+            return null;
+        }
+    }
+
     function getSelectedFeatures() {
-        const sel = sdk.Editing.getSelection();
+        const sel = safeGetSelection();
         if (!sel || sel.objectType !== 'venue' || !sel.ids?.length) return [];
         return sel.ids.map((id) => sdk.DataModel.Venues.getById({ venueId: id })).filter(Boolean);
     }
 
     function hasPlaceSelected() {
-        const sel = sdk.Editing.getSelection();
+        const sel = safeGetSelection();
         return !!(sel && sel.objectType === 'venue' && sel.ids?.length);
     }
 
     function getSelectedPlace() {
-        const sel = sdk.Editing.getSelection();
+        const sel = safeGetSelection();
         if (!sel || sel.objectType !== 'venue' || !sel.ids?.length) return null;
         return sdk.DataModel.Venues.getById({ venueId: sel.ids[0] });
     }
@@ -1134,7 +1144,7 @@
         sdk.Events.on({
             eventName: 'wme-selection-changed',
             eventHandler: () => {
-                lastSelectedFeature = sdk.Editing.getSelection()?.objectType ?? lastSelectedFeature;
+                lastSelectedFeature = safeGetSelection()?.objectType ?? lastSelectedFeature;
                 if (hasPlaceSelected()) {
                     setTimeout(() => {
                         //Trim whitespace from start and end of house number field on Places
@@ -1436,7 +1446,7 @@
 
     function Photos_scan() {
         catalog = [];
-        const selectedIds = sdk.Editing.getSelection()?.ids ?? [];
+        const selectedIds = safeGetSelection()?.ids ?? [];
         const venues = sdk.DataModel.Venues.getAll();
 
         venues.sort(dynamicSort((settings.sortOrder === 'sortDesc' ? '-' : '') + settings.sortBy.substr(6)));
@@ -2022,7 +2032,7 @@
     }
 
     function ObjectsChanged() {
-        if (placeIsPoint && sdk.Editing.getSelection()?.objectType === 'venue') {
+        if (placeIsPoint && safeGetSelection()?.objectType === 'venue') {
             removeDragCallbacks();
             checkSelection();
         }
@@ -2033,7 +2043,7 @@
     }
 
     function checkConditions() {
-        const sel = sdk.Editing.getSelection();
+        const sel = safeGetSelection();
         const a = sdk.Map.getZoomLevel() > 15,
               b = sdk.Map.isLayerVisible({ layerName: 'venues' }),
               c = sdk.Map.isLayerVisible({ layerName: _PIE_CLOSEST_SEGMENT_LAYER }),
@@ -2069,7 +2079,7 @@
         }
 
         setTimeout(() => {
-            const selected = sdk.Editing.getSelection();
+            const selected = safeGetSelection();
             if (selected === null) {
                 removeDragCallbacks();
                 clearClosesetSegmentLayerFeatures();
@@ -2591,7 +2601,7 @@
     }
 
     function OrthogonalizePlace() {
-        const selected = sdk.Editing.getSelection();
+        const selected = safeGetSelection();
         if (selected?.objectType === 'venue') {
             const selectedVenue = sdk.DataModel.Venues.getById({ venueId: selected.ids[0] });
             if (selectedVenue?.geometry?.type === 'Polygon') {
@@ -2621,7 +2631,7 @@
     }
 
     function SimplifyPlace() {
-        const selected = sdk.Editing.getSelection();
+        const selected = safeGetSelection();
         if (!selected) return;
         if (selected.objectType === 'venue') {
             const venue = sdk.DataModel.Venues.getById({ venueId: selected.ids[0] });
@@ -2642,7 +2652,7 @@
 
     function ViewEditPlaceGeom() {
         $('#pieViewEditGeom').remove();
-        const isMapComment = sdk.Editing.getSelection()?.objectType === 'mapComment';
+        const isMapComment = safeGetSelection()?.objectType === 'mapComment';
         const applyBtn = (id) => !isMapComment ? `<button class="pie-geom-apply-btn" id="${id}">Apply</button>` : '';
         var $section = $('<div>');
         $section.html(
@@ -2776,7 +2786,7 @@
             polygonGeometry.push(structuredClone(polygonGeometry[0]));
             newGeom = turf.polygon([polygonGeometry]).geometry;
         }
-        const selected = sdk.Editing.getSelection();
+        const selected = safeGetSelection();
         if (selected?.objectType === 'venue') {
             const selectedVenue = sdk.DataModel.Venues.getById({ venueId: selected.ids[0] });
             if (!selectedVenue) return;
@@ -2789,7 +2799,7 @@
     }
 
     function updateGeometryInputs() {
-        const selection = sdk.Editing.getSelection();
+        const selection = safeGetSelection();
         let currentGeom;
         if (selection?.objectType === 'venue') {
             const selectedVenue = sdk.DataModel.Venues.getById({ venueId: selection.ids[0] });
@@ -2842,7 +2852,7 @@
         $('#pieViewEditGeom').remove(); //remove the Place geometry window when the option is disabled or a Place is de-selected
         if (!settings.GeometryMods) return;
 
-        const selected = sdk.Editing.getSelection();
+        const selected = safeGetSelection();
         let geometry;
         if (selected?.objectType === 'mapComment') {
             const mc = sdk.DataModel.MapComments.getById({ mapCommentId: selected.ids[0] });
@@ -2855,14 +2865,14 @@
 
         if (geometry) {
             const isPoint = geometry.type === 'Point';
-            const isMapComment = sdk.Editing.getSelection()?.objectType === 'mapComment';
+            const isMapComment = safeGetSelection()?.objectType === 'mapComment';
             if (isPoint && !isMapComment) return; // Geometry section is only for area places
             await new Promise((r) => setTimeout(r, 150));
             $('#pieGeometryMods').remove(); // re-remove after delay to handle concurrent calls
             let $GeomMods = $(
                 `<div class="form-group" id="pieGeometryMods"><label class="control-label">Geometry</label><div class="controls">${!isMapComment && !isPoint ? '<i id="pieorthogonalize" title="Orthogonalize" class="fa fa-plus-square-o fa-2x" aria-hidden="true" style="cursor:pointer;"></i> <i id="piesimplifyplace" title="Simplify" class="fa fa-magic fa-2x" aria-hidden="true" style="cursor:pointer;"></i>' : ''} ${!isPoint ? '<i id="pierotate" title="Allow rotating the Place" class="fa fa-repeat fa-2x" aria-hidden="true" style="cursor:pointer; color:' + (settings.Rotate ? 'rgb(0,180,0)' : 'black') + '"></i> <i id="pieresize" title="Allow resizing the Place. While enabled the geometry cannot be modified" class="fa fa-expand fa-2x" aria-hidden="true" style="cursor:pointer; color:' + (settings.Resize ? 'rgb(0,180,0)' : 'black') + '"></i>' : ''} <i id="pieEditGeom" class="fa fa-pencil-square-o fa-2x" aria-hidden="true" style="cursor:pointer;"></i> <i id="pieClearGeom" title="Clear geometry" class="fa fa-times fa-2x" aria-hidden="true" style="cursor:pointer; color:red;"></i></div></div>`,
             );
-            if (sdk.Editing.getSelection()?.objectType === 'mapComment') {
+            if (safeGetSelection()?.objectType === 'mapComment') {
                 $GeomMods.css({ background: 'var(--surface_default)', 'border-radius': '8px', padding: 'var(--space-xs) var(--space-s)', margin: 'var(--space-xs) 0' });
                 $GeomMods.prepend(
                     '<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--content_p3);padding-bottom:var(--space-xxs);margin-bottom:var(--space-xs);border-bottom:1px solid var(--hairline);">Place Interface Enhancements</div>',
@@ -2895,7 +2905,7 @@
             });
 
             $('#pieClearGeom').click(async function () {
-                const sel = sdk.Editing.getSelection();
+                const sel = safeGetSelection();
                 if (!sel) return;
                 if (sel.objectType === 'venue') {
                     const selectedVenue = sdk.DataModel.Venues.getById({ venueId: sel.ids[0] });
@@ -3021,7 +3031,7 @@
         }
         if (!isChecked('_cbShowExternalProviderTooltip')) return;
         await new Promise((r) => setTimeout(r, 100));
-        if (sdk.Editing.getSelection()?.objectType !== 'venue') return;
+        if (safeGetSelection()?.objectType !== 'venue') return;
 
         // Set titles on items already in the DOM
         _applyExtProviderTitles();
@@ -3153,7 +3163,7 @@
     }
 
     function CenterOnPlace(zoom) {
-        const selected = sdk.Editing.getSelection();
+        const selected = safeGetSelection();
         if (selected?.objectType !== 'venue') return;
         const venue = sdk.DataModel.Venues.getById({ venueId: selected.ids[0] });
         if (!venue) return;
@@ -3184,7 +3194,7 @@
         // If another call started during the delay, let it win — bail without injecting.
         if (runId !== _areaSizeRunId) return;
 
-        const selected = sdk.Editing.getSelection();
+        const selected = safeGetSelection();
         if (selected?.objectType === 'venue') {
             const venue = sdk.DataModel.Venues.getById({ venueId: selected.ids[0] });
             if (venue && venue.geometry.type === 'Polygon') {
