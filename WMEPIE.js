@@ -50,7 +50,7 @@
     let GLE;
     let navPointManager = null;
     var catalog = [];
-    const updateMessage = 'Performance optimization for NavPoint when moving venues. <br>Fixed PhotoViewer button responsiveness on smaller screens. <br>New places now open in Edit Mode. <br>Address editor auto-activates for all new places. <br>Fixed settings not being respected.';
+    const updateMessage = 'Make auto-activate of Address editor for new places more reliable.';
     var lastSelectedFeature;
     const SCRIPT_VERSION = GM_info.script.version.toString();
     const SCRIPT_NAME = GM_info.script.name;
