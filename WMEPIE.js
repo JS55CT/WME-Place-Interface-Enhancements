@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Place Interface Enhancements
 // @namespace    https://greasyfork.org/users/30701-justins83-waze
-// @version      2026.03.28.00
+// @version      2026.03.31.00
 // @description  Enhancements to various Place interfaces
 // @include      https://www.waze.com/editor*
 // @include      https://www.waze.com/*/editor*
@@ -50,7 +50,7 @@
     let GLE;
     let navPointManager = null;
     var catalog = [];
-    const updateMessage = 'Performance optimization for NavPoint when moving venues. <br>Fixed PhotoViewer button responsiveness on smaller screens. <br>New places now open in Edit Mode. <br>Address editor auto-activates for all new places. <br>Fixed settings not being respected.';
+    const updateMessage = 'Make auto-activate of Address editor for new places more reliable.';
     var lastSelectedFeature;
     const SCRIPT_VERSION = GM_info.script.version.toString();
     const SCRIPT_NAME = GM_info.script.name;
@@ -2564,12 +2564,12 @@
     }
 
     async function editRPPAddress(rppTries = 1) {
-        if ($(WME_DOM.addressEditView).length > 0) {
+        if ($(WME_DOM.addressFullAddress).length > 0) {
             $(WME_DOM.addressFullAddress).trigger('click');
             await new Promise((r) => setTimeout(r, 150));
             $('input', $(WME_DOM.houseNumber)[0].shadowRoot).focus();
         } else if (rppTries < 1000) {
-            console.log('not found');
+            console.log('WMEPIE: waiting for .full-address');
             setTimeout(async function () {
                 editRPPAddress(++rppTries);
             }, 200);
