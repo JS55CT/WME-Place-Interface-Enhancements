@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Place Interface Enhancements
 // @namespace    https://greasyfork.org/users/30701-justins83-waze
-// @version      2026.03.31.00
+// @version      2026.04.20.00
 // @description  Enhancements to various Place interfaces
 // @include      https://www.waze.com/editor*
 // @include      https://www.waze.com/*/editor*
@@ -50,7 +50,7 @@
     let GLE;
     let navPointManager = null;
     var catalog = [];
-    const updateMessage = 'Make auto-activate of Address editor for new places more reliable.';
+    const updateMessage = 'Removing WazeWrap references that have been deprecated.';
     var lastSelectedFeature;
     const SCRIPT_VERSION = GM_info.script.version.toString();
     const SCRIPT_NAME = GM_info.script.name;
@@ -418,6 +418,7 @@
 
     async function init(sdk) {
         loadTranslations();
+        debugger;
         GLE = new SDKGoogleLinkEnhancer(sdk, turf, { layerName: 'PIE - Highlight closed Places' });
         hoursparser = new HoursParser();
 
@@ -3842,9 +3843,6 @@
             ...Array.from({ length: 12 }, (_, i) => `CreateItem${i + 1}Shortcut`),
         ];
         for (const key of _shortcutSettingsKeys) settings[key] = _normalizeShortcut(settings[key]);
-
-        let serverSettings = await WazeWrap.Remote.RetrieveSettings('WME_PIE');
-        if (serverSettings && serverSettings.lastSaved > settings.lastSaved) $.extend(settings, serverSettings);
 
         if (settings.ShowAreaPlaceSizeImperial === false && settings.ShowAreaPlaceSizeMetric === false)
             if (sdk.Settings.getUserSettings().isImperial) settings.ShowAreaPlaceSizeImperial = true;
