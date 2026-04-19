@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Place Interface Enhancements
 // @namespace    https://greasyfork.org/users/30701-justins83-waze
-// @version      2026.04.20.00
+// @version      2026.04.20.02
 // @description  Enhancements to various Place interfaces
 // @include      https://www.waze.com/editor*
 // @include      https://www.waze.com/*/editor*
@@ -50,7 +50,7 @@
     let GLE;
     let navPointManager = null;
     var catalog = [];
-    const updateMessage = 'Removing WazeWrap references that have been deprecated.';
+    const updateMessage = 'Small SDK tweaks.';
     var lastSelectedFeature;
     const SCRIPT_VERSION = GM_info.script.version.toString();
     const SCRIPT_NAME = GM_info.script.name;
@@ -89,6 +89,10 @@
         houseNumber:            '.house-number',          // RPP address — input lives in shadow root
         sidebarAlert:           'wz-alert.sidebar-alert', // openPUR review button (shadow → shadow)
         searchAutocomplete:     '#search-autocomplete',   // WME search bar (shadow → shadow → input)
+    };
+
+    const layerNames = {
+        closedPlaces: 'PIE - Highlight closed Places'
     };
 
     // Maps sdk shortcutId → settings key (needed because HideAreaPlacesShortcut uses ToggleAreaPlacesShortcut setting)
@@ -381,7 +385,7 @@
                 if (_SKIP_ROAD_TYPES.has(rt)) continue; // always skip non-drivable
                 if (skipPLR && rt === 20 /* PARKING_LOT_ROAD */) continue;
                 if (skipPrivate && rt === 17 /* PRIVATE_ROAD */){
-                    //debugger;
+
                     const segment = sdkInstance.DataModel.Segments.getById({ segmentId: seg.id });
                     const street  = sdkInstance.DataModel.Streets.getById({ streetId: segment.primaryStreetId });
                     if(street?.name === null || street?.name == "")
@@ -418,8 +422,8 @@
 
     async function init(sdk) {
         loadTranslations();
-        debugger;
-        GLE = new SDKGoogleLinkEnhancer(sdk, turf, { layerName: 'PIE - Highlight closed Places' });
+
+        GLE = new SDKGoogleLinkEnhancer(sdk, turf, { layerName: layerNames.closedPlaces });
         hoursparser = new HoursParser();
 
         var $section = $('<div>', { id: 'WMEPIESettings' });
@@ -930,8 +934,9 @@
             const checked = this.checked;
             // Keep the "PIE - Highlight closed Places" Map Layers entry in sync.
             // The SDK has no setter for custom layer checkboxes, so remove+re-add is the workaround.
-            sdk.LayerSwitcher.removeLayerCheckbox({ name: 'PIE - Highlight closed Places' });
-            sdk.LayerSwitcher.addLayerCheckbox({ name: 'PIE - Highlight closed Places', isChecked: checked });
+            //sdk.LayerSwitcher.removeLayerCheckbox({ name: layerNames.closedPlaces });
+            //sdk.LayerSwitcher.addLayerCheckbox({ name: layerNames.closedPlaces, isChecked: checked });
+            sdk.LayerSwitcher.setLayerCheckboxChecked({name: layerNames.closedPlaces, isChecked: checked});
             GLE.showTempClosedPOIs = checked;
         });
 
@@ -940,7 +945,7 @@
         sdk.Events.on({
             eventName: 'wme-layer-checkbox-toggled',
             eventHandler: (payload) => {
-                if (payload.name === 'PIE - Highlight closed Places') {
+                if (payload.name === layerNames.closedPlaces) {
                     setChecked('_cbGLEShowTempClosed', payload.checked); // .prop() only — no change event
                     settings.GLEShowTempClosed = payload.checked;
                     GLE.showTempClosedPOIs = payload.checked;
@@ -1108,8 +1113,9 @@
 
         // Sync the Map Layers "PIE - Highlight closed Places" checkbox to the saved setting.
         // GLE's #initLayer() always defaults to isChecked:true, so we override it here on startup.
-        sdk.LayerSwitcher.removeLayerCheckbox({ name: 'PIE - Highlight closed Places' });
-        sdk.LayerSwitcher.addLayerCheckbox({ name: 'PIE - Highlight closed Places', isChecked: settings.GLEShowTempClosed });
+        //sdk.LayerSwitcher.removeLayerCheckbox({ name: 'PIE - Highlight closed Places' });
+        //sdk.LayerSwitcher.addLayerCheckbox({ name: 'PIE - Highlight closed Places', isChecked: settings.GLEShowTempClosed });
+        sdk.LayerSwitcher.setLayerCheckboxChecked({name: layerNames.closedPlaces, isChecked: settings.GLEShowTempClosed});
         GLE.showTempClosedPOIs = settings.GLEShowTempClosed;
 
         if (settings.EnableGLE) GLE.enable();
@@ -2418,7 +2424,7 @@
                             const textLoc = isPoint ? venue.geometry : turf.centroid(venue.geometry).geometry;
                             const lockStr = showLock ? ' (L' + ((venue.lockRank ?? 0) + 1) + ')' : '';
                             let placeName = WordWrap((venue.name || '').trim() + lockStr);
-                            //debugger;
+
                             if (venue.categories && venue.categories[0] === 'RESIDENTIAL') {
                                 const houseNum = sdk.DataModel.Venues.getAddress({ venueId: venue.id })?.houseNumber || '';
                                 placeName = houseNum + ((venue.name || '').trim() !== '' ? ' - ' + (venue.name || '') : '') + lockStr;
@@ -2696,7 +2702,7 @@
                 j,
                 score,
                 motions;
-            //debugger;
+
             if (points.length === 3) {
                 for (i = 0; i < 1000; i++) {
                     motions = points.map(calcMotion);
